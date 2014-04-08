@@ -11,7 +11,7 @@ module Colorcake
     attr_accessor :base_colors, :colors_count,
       :max_numbers_of_color_in_palette,
       :white_threshold, :black_threshold,
-      :delta, :cluster_colors
+      :delta, :cluster_colors, :color_aliases
 
     def configure(&blk)
       class_eval(&blk)
