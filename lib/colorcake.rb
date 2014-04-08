@@ -49,6 +49,31 @@ module Colorcake
         'cae0e7' => 'ffffff',
         'cad3d5' => 'ffffff'
       }
+
+      @color_aliases ||= {
+        "660000" => 'maroon',
+        "cc0000" => 'red',
+        "ea4c88" => 'pink',
+        "993399" => 'magenta',
+        "663399" => 'violet',
+        "304961" => 'blue',
+        "0066cc" => 'lightblue',
+        "66cccc" => 'greenyellow',
+        "77cc33" => 'green',
+        "336600" => 'goldenrod',
+        "cccc33" => 'gold',
+        "ffcc33" => 'lightyellow',
+        "fff533" => 'yellow',
+        "ff6600" => 'orange',
+        "c8ad7f" => 'beige',
+        "996633" => 'peru',
+        "663300" => 'brown',
+        "000000" => 'black',
+        "999999" => 'gray',
+        "cccccc" => 'lightgray',
+        "ffffff" => 'white'
+      }
+
       @colors_count ||= 60
       @max_numbers_of_color_in_palette ||= 5
       @white_threshold ||= 55_000
