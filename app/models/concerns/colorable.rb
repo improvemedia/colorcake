@@ -57,7 +57,7 @@ module Colorable
     # Generate palette if colors already generated
     def generate_palette_from_active
       begin
-        if image_path_for_color_generator && File.exists?(image_path_for_color_generator)
+        if image_path_for_color_generator
           # find original colors because we don't store them
           @finded_colors = Colorcake.extract_colors(image_path_for_color_generator)
         end
