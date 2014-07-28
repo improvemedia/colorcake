@@ -29,7 +29,7 @@ module Colorable
     end
 
     def generate_colors
-      if image_path_for_color_generator && File.exists?(image_path_for_color_generator)
+      if image_path_for_color_generator
         if untouched_palette?
           colors.destroy_all
           @finded_colors = Colorcake.extract_colors(image_path_for_color_generator)

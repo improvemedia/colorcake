@@ -187,6 +187,8 @@ module Colorcake
     palette = image.color_histogram # .sort {|a, b| b[1] <=> a[1]}
     image.destroy!
     palette
+  rescue
+    nil
   end
 
   # Algorithm defines color preferabbility amongst others
