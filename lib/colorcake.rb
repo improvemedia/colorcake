@@ -114,7 +114,7 @@ module Colorcake
       colors[id][:distance] ||= []
       colors[id][:hex] ||= c.join('')
       colors[id][:original_color] ||= []
-      colors[id][:original_color] << {('#' + c.join('')) => @new_palette[i][1]} unless @new_palette[i].nil?
+      colors[id][:original_color] << {('#' + c.join('')) => @new_palette[i][1]}
       colors[id][:hex_of_base] ||= @base_colors[id] if id
       colors[id][:distance] = closest_color[1] if colors[id][:distance] == []
     end
