@@ -96,7 +96,7 @@ module Colorcake
     @new_palette = []
     remove_common_color_from_palette(palette)
     (0..@new_palette.length - 1).each do |i|
-      c = @new_palette[i][0].to_s.split(',').map { |x| x[/[a-fA-F\d]+/] }
+      c = @new_palette[i][0].to_s.split(',').map { |x| x[/\d+/] }
       b = compute_b(c)
       closest_color = closest_color_to(b)
       percentage = @new_palette[i][1][1]
