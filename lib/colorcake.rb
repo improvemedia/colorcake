@@ -1,11 +1,12 @@
 require_relative 'colorcake/version'
 require_relative 'colorcake/color_util'
 require_relative 'colorcake/merge_colors_methods'
+
 require 'matrix'
 require 'RMagick'
-# Main class of functionality
+
 module Colorcake
-  require 'colorcake/engine' if defined?(Rails)
+  require 'colorcake/engine' if defined? Rails
 
   class << self
     attr_accessor :base_colors, :colors_count,
@@ -13,9 +14,9 @@ module Colorcake
       :white_threshold, :black_threshold,
       :delta, :cluster_colors, :color_aliases
 
-    def configure(&blk)
-      class_eval(&blk)
-      @base_colors ||= %w(660000 cc0000 ea4c88 993399 663399 304961 0066cc 66cccc 77cc33 336600 cccc33 ffcc33 fff533 ff6600 c8ad7f 996633 663300 000000 999999 cccccc ffffff)
+    def configure &blk
+      class_eval &blk
+      @base_colors ||= %w{ 660000 cc0000 ea4c88 993399 663399 304961 0066cc 66cccc 77cc33 336600 cccc33 ffcc33 fff533 ff6600 c8ad7f 996633 663300 000000 999999 cccccc ffffff }
       @cluster_colors ||= {
         '660000' => '660000',
         'cc0000' => 'cc0000', 'ce454c' => 'cc0000',
@@ -82,7 +83,7 @@ module Colorcake
     end
   end
 
-  def self.extract_colors(src, colorspace = ::Magick::RGBColorspace)
+  def self.extract_colors src, colorspace = ::Magick::RGBColorspace
     colors = {}
     colors_hex = {}
     palette = compute_palette(src)
@@ -107,7 +108,7 @@ module Colorcake
           cb = color[0].blue / 257 if color[0].blue / 255 > 0
           cg = color[0].green / 257 if color[0].green / 255 > 0
           delta =  ColorUtil.delta_e(ColorUtil.rgb_to_lab([sr, sb, sg]),
-                                          ColorUtil.rgb_to_lab([cr, cb, cg]))
+                                     ColorUtil.rgb_to_lab([cr, cb, cg]))
           if delta < @delta
             common_colors[index] << color
             common_colors[index] << s
@@ -117,7 +118,6 @@ module Colorcake
               common_colors[index].first[1][1] += color[1][1]
             elsif common_colors[index].first[1][1] == color[1][1]
               common_colors[index].first[1][1] = color[1][1]
-            else
             end
           end
         end
@@ -128,21 +128,20 @@ module Colorcake
           end
         end
         common_colors[index].first
-      else
       end
     end
 
     new_palette.each do |i|
-      c = i[0].to_s.split(',').map { |x| x[/\d+/] }
+      c = i[0].to_s.split(',').map{ |x| x[/\d+/] }
       b = compute_b(c)
       closest_color = closest_color_to(b)
       percentage = i[1][1]
-      colors_hex['#' + c.join('')] = i[1]
+      colors_hex['#' + c.join] = i[1]
 
       id = if defined? Rails
         SearchColor.find_or_create_by_color(closest_color[0]).id
       else
-        @base_colors.index(closest_color[0])
+        @base_colors.index closest_color[0]
       end
 
       colors[id] ||= {}
@@ -150,9 +149,9 @@ module Colorcake
       colors[id][:search_factor] ||= []
       colors[id][:search_factor] << percentage
       colors[id][:distance] ||= []
-      colors[id][:hex] ||= c.join('')
+      colors[id][:hex] ||= c.join
       colors[id][:original_color] ||= []
-      colors[id][:original_color] << {('#' + c.join('')) => i[1]}
+      colors[id][:original_color] << {('#' + c.join) => i[1]}
       colors[id][:hex_of_base] ||= @base_colors[id] if id
       colors[id][:distance] = closest_color[1] if colors[id][:distance] == []
     end
@@ -162,25 +161,25 @@ module Colorcake
     end
     # Disable when not working with DB
     # [colors, colors_hex]
-    colors.delete_if {|k,v| colors[k][:search_factor] < 1}
+    colors.delete_if{ |k,| colors[k][:search_factor] < 1 }
     [colors, colors_hex]
   end
 
-  def self.create_palette(colors)
+  def self.create_palette colors
     if colors.length > @max_numbers_of_color_in_palette
-      colors = slim_palette(colors)
-      create_palette(colors)
+      colors = slim_palette colors
+      create_palette colors
     elsif colors.length == @max_numbers_of_color_in_palette
       return colors
     else
-      colors = expand_palette(colors)
-      create_palette(colors)
+      colors = expand_palette colors
+      create_palette colors
     end
   end
 
   private
 
-  def self.compute_b(c)
+  def self.compute_b c
     c.pop
     c[0], c[1], c[2] = [c[0], c[1], c[2]].map do |s|
       s = s.to_i
@@ -192,17 +191,18 @@ module Colorcake
         s
       end
     end
-    c.join('').scan(/../).map { |color| color.to_i(16) }
+    c.join.scan(/../).map{ |color| color.to_i 16 }
   end
 
-  def self.closest_color_to(b)
+  def self.closest_color_to b
+    # do not remove, used in /marvin/lib/tasks/colors.rake
     closest_colors = {}
     @cluster_colors.each do |extended_color, base_color|
       extended_color_hex = ColorUtil.rgb_number_from_string(extended_color)
       delta = ColorUtil.delta_e(ColorUtil.rgb_to_lab(extended_color_hex), ColorUtil.rgb_to_lab(b))
       closest_colors[extended_color] = delta
     end
-    closest_color = closest_colors.sort_by { |a, d| d }.first
+    closest_color = closest_colors.sort_by{ |a, d| d }.first
     if @cluster_colors[closest_color[0]]
       closest_color = [@cluster_colors[closest_color[0]],
                        ColorUtil.delta_e(ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(@cluster_colors[closest_color[0]])),
@@ -211,15 +211,15 @@ module Colorcake
     closest_color
   end
 
-  def self.color_quantity_in_image(palette)
-    sum_of_pixels = sum_of_hash(palette)
+  def self.color_quantity_in_image palette
+    sum_of_pixels = sum_of_hash palette
     palette.each do |k, v|
       palette[k] = [v, v / (sum_of_pixels.to_f / 100)]
     end
     palette
   end
 
-  def self.compute_palette(src_of_image)
+  def self.compute_palette src_of_image
     image = ::Magick::ImageList.new(src_of_image)
     image = image.quantize(@colors_count, Magick::YIQColorspace)
     palette = image.color_histogram # .sort {|a, b| b[1] <=> a[1]}
@@ -229,24 +229,31 @@ module Colorcake
 
   # Algorithm defines color preferabbility amongst others
   # (for now it is only sum of place percentage)
-  def self.generate_factor(array_of_vars)
+  def self.generate_factor array_of_vars
     array_of_vars.reduce(:+).to_i
   end
 
-  def self.expand_palette(colors)
+  def self.expand_palette colors
     col_array = colors.to_a
     rgb_color_1 = ColorUtil.rgb_from_string(col_array[0][0])
     rgb_color_2 = ColorUtil.rgb_from_string(col_array[-1][0])
     if col_array.length == 1
-      rgb_color_2 = [rgb_color_1[0] + Random.new.rand(0..10), rgb_color_1[1] + Random.new.rand(0..20), rgb_color_1[2] + Random.new.rand(0..30)]
+      rgb_color_2 = [
+        rgb_color_1[0] + rand(0..10),
+        rgb_color_1[1] + rand(0..20),
+        rgb_color_1[2] + rand(0..30),
+      ]
     end
-
-    rgb =  [(rgb_color_1[0] + rgb_color_2[0]) / 2, (rgb_color_1[1] + rgb_color_2[1]) / 2, (rgb_color_1[2] + rgb_color_2[2]) / 2]
-    rgb.map! { |c| c.to_i.to_s(16) }
-    colors.merge!({ '#' + rgb.join('') => [1, 2] })
+    rgb = [
+      (rgb_color_1[0] + rgb_color_2[0]) / 2,
+      (rgb_color_1[1] + rgb_color_2[1]) / 2,
+      (rgb_color_1[2] + rgb_color_2[2]) / 2,
+    ]
+    rgb.map!{ |c| c.to_i.to_s 16 }
+    colors.merge!( { '#' + rgb.join => [1, 2] } )
   end
 
-  def self.slim_palette(colors)
+  def self.slim_palette colors
     col_array = colors.to_a
     matrix = Matrix.build(col_array.length, col_array.length) do |row, col|
       rgb_color_1 = ColorUtil.rgb_from_string(col_array[row][0])
@@ -257,11 +264,7 @@ module Colorcake
       # c1 = ColorUtil.rgb_to_hcl(rgb_color_1[0],rgb_color_1[1],rgb_color_1[2])
       # c2 = ColorUtil.rgb_to_hcl(rgb_color_2[0],rgb_color_2[1],rgb_color_2[2])
       # diff = ColorUtil.distance_hcl(c1, c2)
-      if diff == 0
-        100_000
-      else
-        diff
-      end
+      diff == 0 ? 100_000 : diff
     end
     colors_position = find_position_in_matrix_of_closest_color(matrix)
     closest_colors = [colors.to_a[colors_position[0]], colors.to_a[colors_position[1]]]
@@ -271,15 +274,16 @@ module Colorcake
     colors
   end
 
-  def self.find_position_in_matrix_of_closest_color(matrix)
+  def self.find_position_in_matrix_of_closest_color matrix
     matrix_array = matrix.to_a
     minimum = matrix_array.flatten.min
-    [i = matrix_array.index { |x| x.include? minimum }, matrix_array[i].index(minimum)]
+    i = matrix_array.index{ |x| x.include? minimum }
+    [i, matrix_array[i].index(minimum)]
   end
 
-  def self.sum_of_hash(hash)
+  def self.sum_of_hash hash
     s = 0
-    hash.each_value { |v| s += v }
+    hash.each_value{ |v| s += v }
     s
   end
 
