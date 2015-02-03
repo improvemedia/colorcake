@@ -11,7 +11,7 @@ module Colorable
     attr_accessor :modified_palette
     accepts_nested_attributes_for :colors, update_only: true
 
-    after_create :process_colors
+    #after_create :process_colors
 
     scope :by_color, -> colors {
       if !colors.blank?
