@@ -1,7 +1,7 @@
 require_relative '../../lib/colorcake'
 
 Colorcake.configure do
-  # taken from marvin initializer
+  # taken from /marvin/config/initializers/colorcake.rb
   @base_colors ||= %w{ 660000 cc0000 ea4c88 993399 663399 304961 0066cc 66cccc 77cc33 336600 cccc33 ffcc33 fff533 ff6600 c8ad7f 996633 663300 000000 999999 cccccc ffffff }
 end
 

@@ -2,7 +2,6 @@ require_relative 'colorcake/version'
 require_relative 'colorcake/color_util'
 require_relative 'colorcake/merge_colors_methods'
 
-require 'matrix'
 require 'RMagick'
 
 module Colorcake
@@ -83,51 +82,55 @@ module Colorcake
     end
   end
 
-  def self.extract_colors src, colorspace = ::Magick::RGBColorspace
+  def self.extract_colors src
     colors = {}
     colors_hex = {}
     palette = compute_palette(src)
-    palette = color_quantity_in_image(palette)
+
+    sum_of_pixels = palette.values.inject(:+)
+    palette.each do |k, v|
+      palette[k] = [v, v / (sum_of_pixels.to_f / 100)]
+    end
+
     old_palette = palette
 
-    common_colors = []
-    new_palette = palette.map.with_index do |s, index|
-      common_colors[index] = []
+    new_palette = palette.map.with_index do |(color1, n1), index|
+      common_colors = []
       if index < palette.length
-        palette.each do |color|
-          sr = s[0].red
-          sb = s[0].blue
-          sg = s[0].green
-          cr = color[0].red
-          cb = color[0].blue
-          cg = color[0].green
-          sr = s[0].red / 257 if s[0].red / 255 > 0
-          sb = s[0].blue / 257 if s[0].blue / 255 > 0
-          sg = s[0].green / 257 if s[0].green / 255 > 0
-          cr = color[0].red / 257 if color[0].red / 255 > 0
-          cb = color[0].blue / 257 if color[0].blue / 255 > 0
-          cg = color[0].green / 257 if color[0].green / 255 > 0
+        palette.each do |color2, n2|
+          sr = color1.red
+          sb = color1.blue
+          sg = color1.green
+          cr = color2.red
+          cb = color2.blue
+          cg = color2.green
+          sr = color1.red / 257 if color1.red / 255 > 0
+          sb = color1.blue / 257 if color1.blue / 255 > 0
+          sg = color1.green / 257 if color1.green / 255 > 0
+          cr = color2.red / 257 if color2.red / 255 > 0
+          cb = color2.blue / 257 if color2.blue / 255 > 0
+          cg = color2.green / 257 if color2.green / 255 > 0
           delta =  ColorUtil.delta_e(ColorUtil.rgb_to_lab([sr, sb, sg]),
                                      ColorUtil.rgb_to_lab([cr, cb, cg]))
           if delta < @delta
-            common_colors[index] << color
-            common_colors[index] << s
-            common_colors[index].uniq!
+            common_colors << [color2, n2]
+            common_colors << [color1, n1]
+            common_colors.uniq!
 
-            if common_colors[index].first[1][1] && common_colors[index].first[1][1] != color[1][1]
-              common_colors[index].first[1][1] += color[1][1]
-            elsif common_colors[index].first[1][1] == color[1][1]
-              common_colors[index].first[1][1] = color[1][1]
+            if common_colors.first[1][1] && common_colors.first[1][1] != n2[1]
+              common_colors.first[1][1] += n2[1]
+            elsif common_colors.first[1][1] == n2[1]
+              common_colors.first[1][1] = n2[1]
             end
           end
         end
-        common_colors[index].uniq!
-        common_colors[index].each_with_index do |col, ind|
+        common_colors.uniq!
+        common_colors.each_with_index do |col, ind|
           if ind != 0
             old_palette.delete col[0]
           end
         end
-        common_colors[index].first
+        common_colors.first
       end
     end
 
@@ -157,8 +160,11 @@ module Colorcake
     end
 
     colors.each_with_index do |fac, index|
-      colors[fac[0]][:search_factor] = generate_factor(fac[1][:search_factor])
+      # Algorithm defines color preferabbility amongst others
+      # (for now it is only sum of place percentage)
+      colors[fac[0]][:search_factor] = fac[1][:search_factor].reduce(:+).to_i
     end
+
     # Disable when not working with DB
     # [colors, colors_hex]
     colors.delete_if{ |k,| colors[k][:search_factor] < 1 }
@@ -197,40 +203,32 @@ module Colorcake
   def self.closest_color_to b
     # do not remove, used in /marvin/lib/tasks/colors.rake
     closest_colors = {}
-    @cluster_colors.each do |extended_color, base_color|
-      extended_color_hex = ColorUtil.rgb_number_from_string(extended_color)
-      delta = ColorUtil.delta_e(ColorUtil.rgb_to_lab(extended_color_hex), ColorUtil.rgb_to_lab(b))
-      closest_colors[extended_color] = delta
+    @cluster_colors.each_key do |extended_color, |
+      closest_colors[extended_color] = ColorUtil.delta_e(
+        ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(extended_color)),
+        ColorUtil.rgb_to_lab(b)
+      )
     end
-    closest_color = closest_colors.sort_by{ |a, d| d }.first
-    if @cluster_colors[closest_color[0]]
-      closest_color = [@cluster_colors[closest_color[0]],
-                       ColorUtil.delta_e(ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(@cluster_colors[closest_color[0]])),
-                                         ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(closest_color[0]))) ]
+    closest_color = closest_colors.min_by{ |a, d| d }
+    if cluster = @cluster_colors[closest_color[0]]
+      closest_color = [
+        cluster,
+        ColorUtil.delta_e(
+          ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(cluster)),
+          ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(closest_color[0]))
+        )
+      ]
     end
     closest_color
   end
 
-  def self.color_quantity_in_image palette
-    sum_of_pixels = sum_of_hash palette
-    palette.each do |k, v|
-      palette[k] = [v, v / (sum_of_pixels.to_f / 100)]
-    end
-    palette
-  end
-
-  def self.compute_palette src_of_image
-    image = ::Magick::ImageList.new(src_of_image)
-    image = image.quantize(@colors_count, Magick::YIQColorspace)
-    palette = image.color_histogram # .sort {|a, b| b[1] <=> a[1]}
+  def self.compute_palette src
+    image = ::Magick::ImageList.new(src)
+    image_quantized = image.quantize(@colors_count, Magick::YIQColorspace)
+    palette = image_quantized.color_histogram # {#<Magick::Pixel:0x007fc19a08fd00>=>61660, ...}
+    image_quantized.destroy!
     image.destroy!
     palette
-  end
-
-  # Algorithm defines color preferabbility amongst others
-  # (for now it is only sum of place percentage)
-  def self.generate_factor array_of_vars
-    array_of_vars.reduce(:+).to_i
   end
 
   def self.expand_palette colors
@@ -255,16 +253,18 @@ module Colorcake
 
   def self.slim_palette colors
     col_array = colors.to_a
-    matrix = Matrix.build(col_array.length, col_array.length) do |row, col|
-      rgb_color_1 = ColorUtil.rgb_from_string(col_array[row][0])
-      rgb_color_2 = ColorUtil.rgb_from_string(col_array[col][0])
-      pixel_1 = ColorUtil.rgb_to_lab([rgb_color_1[0], rgb_color_1[1], rgb_color_1[2]])
-      pixel_2 = ColorUtil.rgb_to_lab([rgb_color_2[0], rgb_color_2[1], rgb_color_2[2]])
-      diff = ColorUtil.delta_e(pixel_1, pixel_2)
-      # c1 = ColorUtil.rgb_to_hcl(rgb_color_1[0],rgb_color_1[1],rgb_color_1[2])
-      # c2 = ColorUtil.rgb_to_hcl(rgb_color_2[0],rgb_color_2[1],rgb_color_2[2])
-      # diff = ColorUtil.distance_hcl(c1, c2)
-      diff == 0 ? 100_000 : diff
+    matrix = col_array.map do |row|
+      col_array.map do |col|
+        rgb_color_1 = ColorUtil.rgb_from_string(row[0])
+        rgb_color_2 = ColorUtil.rgb_from_string(col[0])
+        pixel_1 = ColorUtil.rgb_to_lab([rgb_color_1[0], rgb_color_1[1], rgb_color_1[2]])
+        pixel_2 = ColorUtil.rgb_to_lab([rgb_color_2[0], rgb_color_2[1], rgb_color_2[2]])
+        diff = ColorUtil.delta_e(pixel_1, pixel_2)
+        # c1 = ColorUtil.rgb_to_hcl(rgb_color_1[0],rgb_color_1[1],rgb_color_1[2])
+        # c2 = ColorUtil.rgb_to_hcl(rgb_color_2[0],rgb_color_2[1],rgb_color_2[2])
+        # diff = ColorUtil.distance_hcl(c1, c2)
+        diff == 0 ? 100_000 : diff
+      end
     end
     colors_position = find_position_in_matrix_of_closest_color(matrix)
     closest_colors = [colors.to_a[colors_position[0]], colors.to_a[colors_position[1]]]
@@ -279,12 +279,6 @@ module Colorcake
     minimum = matrix_array.flatten.min
     i = matrix_array.index{ |x| x.include? minimum }
     [i, matrix_array[i].index(minimum)]
-  end
-
-  def self.sum_of_hash hash
-    s = 0
-    hash.each_value{ |v| s += v }
-    s
   end
 
 end
