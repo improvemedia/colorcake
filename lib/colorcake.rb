@@ -100,60 +100,54 @@ module Colorcake
     new_palette = palette.map.with_index do |(color1, n1), index|
       raise "Unexpected for algorithm: index < palette.length" unless index < palette.length
       common_colors = []
-      sr = color1.red
-      sb = color1.blue
-      sg = color1.green
-      sr /= 257 if sr / 255 > 0
-      sb /= 257 if sb / 255 > 0
-      sg /= 257 if sg / 255 > 0
-      lab = ColorUtil.rgb_to_lab([sr, sb, sg])
-      if index < palette.length
-        palette.each do |color2, n2|
-          cr = color2.red
-          cb = color2.blue
-          cg = color2.green
-          cr /= 257 if color2.red / 255 > 0
-          cb /= 257 if color2.blue / 255 > 0
-          cg /= 257 if color2.green / 255 > 0
-          next unless @delta > ColorUtil.delta_e(lab, ColorUtil.rgb_to_lab([cr, cb, cg]))
-          common_colors << [color2, n2]
-          common_colors << [color1, n1]
-          common_colors.uniq!
-          if common_colors.first[1][1] && common_colors.first[1][1] != n2[1]
-            common_colors.first[1][1] += n2[1]
-          end
-        end
+      r1 = color1.red
+      b1 = color1.blue
+      g1 = color1.green
+      r1 /= 257 if r1 / 255 > 0
+      b1 /= 257 if b1 / 255 > 0
+      g1 /= 257 if g1 / 255 > 0
+      lab = ColorUtil.rgb_to_lab([r1, b1, g1])
+      palette.each do |color2, n2|
+        r2 = color2.red
+        b2 = color2.blue
+        g2 = color2.green
+        r2 /= 257 if r2 / 255 > 0
+        b2 /= 257 if b2 / 255 > 0
+        g2 /= 257 if g2 / 255 > 0
+        next unless @delta > ColorUtil.delta_e(lab, ColorUtil.rgb_to_lab([r2, b2, g2]))
+        common_colors << [color2, n2]
+        common_colors << [color1, n1]
         common_colors.uniq!
-        common_colors.drop(1).each do |col|
-          palette.delete col[0]
+        if common_colors.first[1][1] && common_colors.first[1][1] != n2[1]
+          common_colors.first[1][1] += n2[1]
         end
-        common_colors.first
       end
+      common_colors.uniq!
+      common_colors.drop(1).each do |col|
+        # seems like this works wrong
+        #   a = [0,1,2,3,4]; a.map.with_index{ |e,i| p [e,i]; a.delete e }; a
+        # proof: 1/0 if index >= palette.index(col[0])
+        palette.delete col[0]
+      end
+      common_colors.first
     end
 
     new_palette.each do |color, n|
-      c = color.to_s.split(',').map{ |x| x[/\d+/] }
 
-      c.pop
-      c[0], c[1], c[2] = [c[0], c[1], c[2]].map do |s|
-        s = s.to_i
+      c = color.to_s.split(",").take(3).map do |s|
+        s = s[/\d+/].to_i
         s = s / 257 if s / 255 > 0 # not all ImageMagicks are created equal....
-        s = s.to_s(16)
-        if s.size == 1
-          '0' + s
-        else
-          s
-        end
+        s
       end
-      b = c.join.scan(/../).map{ |color| color.to_i 16 }
 
-      closest_color = closest_color_to(b)
-      colors_hex['#' + c.join] = n
+      color, delta = closest_color_to c
+      hex_color = c.pack("C*").unpack("H*")[0] # [0,100,255].pack("C*").unpack("H*") => ["0064ff"]
+      colors_hex["#" + hex_color] = n
 
       id = if defined? Rails
-        SearchColor.find_or_create_by_color(closest_color[0]).id
+        SearchColor.find_or_create_by_color(color).id
       else
-        @base_colors.index closest_color[0]
+        @base_colors.index color
       end
 
       colors[id] ||= {}
@@ -161,11 +155,11 @@ module Colorcake
       colors[id][:search_factor] ||= []
       colors[id][:search_factor] << n[1]
       colors[id][:distance] ||= []
-      colors[id][:hex] ||= c.join
+      colors[id][:hex] ||= hex_color
       colors[id][:original_color] ||= []
-      colors[id][:original_color] << {('#' + c.join) => n}
+      colors[id][:original_color] << {"#" + hex_color => n}
       colors[id][:hex_of_base] ||= @base_colors[id] if id
-      colors[id][:distance] = closest_color[1] if colors[id][:distance] == []
+      colors[id][:distance] = delta if colors[id][:distance] == []
     end
 
     colors.each_with_index do |fac, index|
@@ -181,7 +175,11 @@ module Colorcake
   end
 
   def self.create_palette colors
-    if colors.length > @max_numbers_of_color_in_palette
+    d = colors.length - @max_numbers_of_color_in_palette
+
+    return colors if d.zero?
+
+    if d > 0
 
       col_array = colors.to_a
       matrix = col_array.map do |row|
@@ -203,59 +201,51 @@ module Colorcake
       colors.merge!(merge_result[0])
       colors.delete(merge_result[1])
 
-      create_palette colors
-    elsif colors.length == @max_numbers_of_color_in_palette
-      return colors
     else
-      colors = expand_palette colors
-      create_palette colors
+
+      col_array = colors.to_a
+      rgb_color_1 = ColorUtil.rgb_from_string(col_array[0][0])
+      rgb_color_2 = if col_array.length != 1
+        ColorUtil.rgb_from_string(col_array[-1][0])
+      else
+        [
+          rgb_color_1[0] + rand(0..10),
+          rgb_color_1[1] + rand(0..20),
+          rgb_color_1[2] + rand(0..30),
+        ]
+      end
+      rgb = [
+        (rgb_color_1[0] + rgb_color_2[0]) / 2,
+        (rgb_color_1[1] + rgb_color_2[1]) / 2,
+        (rgb_color_1[2] + rgb_color_2[2]) / 2,
+      ]
+      rgb.map!{ |c| c.to_i.to_s 16 }
+      colors.merge!( { '#' + rgb.join => [1, 2] } )
+
     end
+
+    create_palette colors
   end
 
   private
 
   def self.closest_color_to b
     # do not remove, used in /marvin/lib/tasks/colors.rake
-    closest_color = @cluster_colors.map do |extended_color, |
-      [
-        extended_color,
-        ColorUtil.delta_e(
-          ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(extended_color)),
-          ColorUtil.rgb_to_lab(b)
-        )
-      ]
-    end.min_by{ |color, delta| delta }
-    if cluster = @cluster_colors[closest_color[0]]
-      closest_color = [
-        cluster,
-        ColorUtil.delta_e(
-          ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(cluster)),
-          ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(closest_color[0]))
-        )
-      ]
+    lab = ColorUtil.rgb_to_lab(b)
+    closest_color = @cluster_colors.keys.min_by do |extended_color|
+      ColorUtil.delta_e(
+        ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(extended_color)),
+        lab
+      )
     end
-    closest_color
-  end
-
-  def self.expand_palette colors
-    col_array = colors.to_a
-    rgb_color_1 = ColorUtil.rgb_from_string(col_array[0][0])
-    rgb_color_2 = if col_array.length != 1
-      ColorUtil.rgb_from_string(col_array[-1][0])
-    else
-      [
-        rgb_color_1[0] + rand(0..10),
-        rgb_color_1[1] + rand(0..20),
-        rgb_color_1[2] + rand(0..30),
-      ]
-    end
-    rgb = [
-      (rgb_color_1[0] + rgb_color_2[0]) / 2,
-      (rgb_color_1[1] + rgb_color_2[1]) / 2,
-      (rgb_color_1[2] + rgb_color_2[2]) / 2,
+    cluster = @cluster_colors[closest_color]
+    [
+      cluster,
+      ColorUtil.delta_e(
+        ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(cluster)),
+        ColorUtil.rgb_to_lab(ColorUtil.rgb_number_from_string(closest_color))
+      )
     ]
-    rgb.map!{ |c| c.to_i.to_s 16 }
-    colors.merge!( { '#' + rgb.join => [1, 2] } )
   end
 
   def self.find_position_in_matrix_of_closest_color matrix

@@ -6,6 +6,7 @@ module ColorUtil
   Al = 1.4456
 
   def self.rgb_from_string(string)
+    # return string.scan(/[0-9a-f][0-9a-f]/i).map(&:hex)
     color = []
     oc = 0
     string.each_char do |c|
