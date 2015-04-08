@@ -56,27 +56,26 @@ module Colorable
 
     # Generate palette if colors already generated
     def generate_palette_from_active
-      begin
-        if image_path_for_color_generator
-          # find original colors because we don't store them
-          @finded_colors = Colorcake.extract_colors(image_path_for_color_generator)
-        end
-        # store here original colors in right format
-        coll = []
-        colors.where(active: true).pluck(:id).each do |id|
-          color = Color.find(id)
-          @finded_colors.first.each do |k, v|
-            if v[:search_color_id] == color.search_color_id
-              coll << v[:original_color]
-            end
+      if image_path_for_color_generator
+        # find original colors because we don't store them
+        @finded_colors = Colorcake.extract_colors(image_path_for_color_generator)
+      end
+      # store here original colors in right format
+      coll = []
+      colors.where(active: true).pluck(:id).each do |id|
+        color = Color.find(id)
+        @finded_colors.first.each do |k, v|
+          if v[:search_color_id] == color.search_color_id
+            coll << v[:original_color]
           end
         end
-        colors_for_palette = coll.inject({}) { |s, o| s.merge(o[0]) }
-        generate_palette(colors_for_palette)
-      rescue => e
-        puts "#{e.inspect}"
-        errors[:base] << e.message
       end
+      colors_for_palette = coll.inject({}) { |s, o| s.merge(o[0]) }
+      generate_palette(colors_for_palette)
+    rescue => e
+      Rails.logger.error e
+      e.backtrace.each{ |s| Rails.logger.error s }
+      errors[:base] << e.message
     end
 
   private
@@ -87,13 +86,12 @@ module Colorable
 
     # colors is for example {"#333300" => [1,2]}
     def generate_palette(colors)
-      begin
-        _palette = Colorcake.create_palette(colors).keys.join(',')
-        _modified_palette = nil
-        assign_attributes palette: _palette, modified_palette: _modified_palette
-      rescue => e
-          puts "ERROR!!! #{e.message}"
-      end
+      _palette = Colorcake.create_palette(colors).keys.join(',')
+      _modified_palette = nil
+      assign_attributes palette: _palette, modified_palette: _modified_palette
+    rescue => e
+      Rails.logger.error e
+      e.backtrace.each{ |s| Rails.logger.error s }
     end
 
   end
