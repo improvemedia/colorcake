@@ -7,7 +7,9 @@ end
 
 STDOUT.sync = true
 
-(0..15).map do |i|
+(
+  ARGV.empty? ? 0..15 : [ARGV.first]
+).map do |i|
   Thread.new do
     index = i
     # puts "<< #{index}"

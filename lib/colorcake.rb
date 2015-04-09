@@ -93,6 +93,19 @@ module Colorcake
     image.destroy!
 
     sum_of_pixels = palette.values.inject(:+)
+
+    # # making 2 colors palette to force expand_palette
+    # srand 1
+    # palette.keys.map do |k|
+    #   v = palette.delete k
+    #   d = rand(2) * 0x80 * 0 # force 1 color palette for stack overflow
+    #   k.red = 0x10 + d
+    #   k.blue = 0x20 + d
+    #   k.green = 0x30 + d
+    #   # p [k.red, k.blue, k.green]
+    #   palette[k] = v
+    # end
+
     palette.each do |k, v|
       palette[k] = [v, v / (sum_of_pixels / 100.0)]
     end
@@ -175,13 +188,15 @@ module Colorcake
   end
 
   def self.create_palette colors
-    d = colors.length - @max_numbers_of_color_in_palette
+    # raise "gonna crash with 'too deep stack level'" if caller.size > 5000 if ((Time.now.to_f.round(3)*1000) % 10) == 0
+    d = @max_numbers_of_color_in_palette - colors.length
 
     return colors if d.zero?
 
-    if d > 0
+    col_array = colors.to_a
 
-      col_array = colors.to_a
+    if d < 0
+
       matrix = col_array.map do |row|
         col_array.map do |col|
           rgb_color_1 = ColorUtil.rgb_from_string(row[0])
@@ -203,24 +218,16 @@ module Colorcake
 
     else
 
-      col_array = colors.to_a
-      rgb_color_1 = ColorUtil.rgb_from_string(col_array[0][0])
-      rgb_color_2 = if col_array.length != 1
-        ColorUtil.rgb_from_string(col_array[-1][0])
-      else
-        [
-          rgb_color_1[0] + rand(0..10),
-          rgb_color_1[1] + rand(0..20),
-          rgb_color_1[2] + rand(0..30),
-        ]
+      rgb = ColorUtil.rgb_from_string(col_array.sample[0])
+      preferable_shifts = (-rgb.min..255-rgb.max).sort_by{ |shift| [
+        shift.abs < 30        ? [2, -shift.abs] :
+        (shift.abs % 30) != 0 ? [1,  shift.abs] :
+                                [0,  shift.abs]
+      ] }
+      preferable_shifts.take(d).each do |shift|
+        imaginable_color = rgb.map{ |channel| channel + shift }
+        colors.merge! ("#" + imaginable_color.pack("C*").unpack("H*")[0]) => [1, 2]
       end
-      rgb = [
-        (rgb_color_1[0] + rgb_color_2[0]) / 2,
-        (rgb_color_1[1] + rgb_color_2[1]) / 2,
-        (rgb_color_1[2] + rgb_color_2[2]) / 2,
-      ]
-      rgb.map!{ |c| c.to_i.to_s 16 }
-      colors.merge!( { '#' + rgb.join => [1, 2] } )
 
     end
 
