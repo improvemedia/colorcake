@@ -2,7 +2,7 @@ require_relative 'colorcake/version'
 require_relative 'colorcake/color_util'
 require_relative 'colorcake/merge_colors_methods'
 
-require 'RMagick'
+require 'rmagick'
 
 module Colorcake
   require 'colorcake/engine' if defined? Rails
