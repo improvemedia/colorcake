@@ -158,7 +158,7 @@ module Colorcake
       colors_hex["#" + hex_color] = n
 
       id = if defined? Rails
-        SearchColor.find_or_create_by_color(color).id
+        SearchColor.find_or_create_by(color: color).id
       else
         @base_colors.index color
       end
