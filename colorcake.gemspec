@@ -26,5 +26,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'method_profiler'
   spec.add_development_dependency "ruby-prof"
 
-  spec.add_dependency 'rmagick'
+  spec.add_dependency 'rmagick', '~> 2.13.3'
 end
