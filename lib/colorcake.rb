@@ -37,7 +37,7 @@ module Colorcake
         '000000' => '000000', '2e2929' => '000000',
         '999999' => '999999', '7e8896' => '999999', '636363' => '999999',
         'cccccc' => 'cccccc', 'afb5ab' => 'cccccc',
-        'ffffff' => 'ffffff', 'dde2e2' => 'ffffff', 'edefeb' => 'ffffff', 'ffe6e6' => '',  'ffe6e6' => 'ffffff', 'd5ccc3' => 'ffffff',
+        'ffffff' => 'ffffff', 'dde2e2' => 'ffffff', 'edefeb' => 'ffffff', 'ffe6e6' => 'ffffff', 'd5ccc3' => 'ffffff',
         'f6fce3' => 'ffffff',
         'e1f4fa' => 'ffffff',
         'e5e1fa' => 'ffffff',
@@ -46,7 +46,6 @@ module Colorcake
         'ede7cf' => 'ffffff',
         'cae0e7' => 'ffffff',
         'ede1cf' => 'ffffff',
-        'cae0e7' => 'ffffff',
         'cad3d5' => 'ffffff'
       }
 
