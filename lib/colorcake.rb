@@ -85,88 +85,29 @@ module Colorcake
     colors = {}
     colors_hex = {}
 
-    image = ::Magick::ImageList.new(src)
-    image_quantized = image.quantize(@colors_count, Magick::YIQColorspace)
-    palette = image_quantized.color_histogram # {#<Magick::Pixel:0x007fc19a08fd00>=>61660, ...}
-    image_quantized.destroy!
-    image.destroy!
+    palette = _generate_palette(src)
 
-    sum_of_pixels = palette.values.inject(:+)
+    common_colors = _generate_common_colors_from_palette(palette)
 
-    # # making 2 colors palette to force expand_palette
-    # srand 1
-    # palette.keys.map do |k|
-    #   v = palette.delete k
-    #   d = rand(2) * 0x80 * 0 # force 1 color palette for stack overflow
-    #   k.red = 0x10 + d
-    #   k.blue = 0x20 + d
-    #   k.green = 0x30 + d
-    #   # p [k.red, k.blue, k.green]
-    #   palette[k] = v
-    # end
-
-    palette.each do |k, v|
-      palette[k] = [v, v / (sum_of_pixels / 100.0)]
-    end
-
-    new_palette = palette.map.with_index do |(color1, n1), index|
-      raise "Unexpected for algorithm: index < palette.length" unless index < palette.length
-      common_colors = []
-      r1 = color1.red
-      b1 = color1.blue
-      g1 = color1.green
-      r1 /= 257 if r1 / 255 > 0
-      b1 /= 257 if b1 / 255 > 0
-      g1 /= 257 if g1 / 255 > 0
-      lab = ColorUtil.rgb_to_lab([r1, b1, g1])
-      palette.each do |color2, n2|
-        r2 = color2.red
-        b2 = color2.blue
-        g2 = color2.green
-        r2 /= 257 if r2 / 255 > 0
-        b2 /= 257 if b2 / 255 > 0
-        g2 /= 257 if g2 / 255 > 0
-        next unless @delta > ColorUtil.delta_e(lab, ColorUtil.rgb_to_lab([r2, b2, g2]))
-        common_colors << [color2, n2]
-        common_colors << [color1, n1]
-        common_colors.uniq!
-        if common_colors.first[1][1] && common_colors.first[1][1] != n2[1]
-          common_colors.first[1][1] += n2[1]
-        end
-      end
-      common_colors.uniq!
-      common_colors.drop(1).each do |col|
-        # seems like this works wrong
-        #   a = [0,1,2,3,4]; a.map.with_index{ |e,i| p [e,i]; a.delete e }; a
-        # proof: 1/0 if index >= palette.index(col[0])
-        palette.delete col[0]
-      end
-      common_colors.first
-    end
-
-    new_palette.each do |color, n|
-
+    common_colors.each do |color, n|
       c = color.to_s.split(",").take(3).map do |s|
         s = s[/\d+/].to_i
         s = s / 257 if s / 255 > 0 # not all ImageMagicks are created equal....
         s
       end
 
-      color, delta = closest_color_to c
+      closest_color, delta = closest_color_to c
       hex_color = c.pack("C*").unpack("H*")[0] # [0,100,255].pack("C*").unpack("H*") => ["0064ff"]
       colors_hex["#" + hex_color] = n
 
-      id = if defined? Rails
-        SearchColor.find_or_create_by(color: color).id
-      else
-        @base_colors.index color
-      end
+      id = _search_color_id(closest_color)
 
       colors[id] ||= {}
       colors[id][:search_color_id] ||= id
       colors[id][:search_factor] ||= []
       colors[id][:search_factor] << n[1]
       colors[id][:distance] ||= []
+      colors[id][:closest_color] ||= closest_color
       colors[id][:hex] ||= hex_color
       colors[id][:original_color] ||= []
       colors[id][:original_color] << {"#" + hex_color => n}
@@ -234,6 +175,61 @@ module Colorcake
   end
 
   private
+
+  def self._generate_palette(image_url)
+    image = ::Magick::ImageList.new(image_url)
+    image_quantized = image.quantize(@colors_count, Magick::YIQColorspace)
+    palette = image_quantized.color_histogram # {#<Magick::Pixel:0x007fc19a08fd00>=>61660, ...}
+    image_quantized.destroy!
+    image.destroy!
+    sum_of_pixels = palette.values.inject(:+)
+
+    palette.each do |k, v|
+      palette[k] = [v, v / (sum_of_pixels / 100.0)]
+    end
+  end
+
+  def self._generate_common_colors_from_palette(palette)
+    palette.map.with_index do |(color1, n1), index|
+      raise "Unexpected for algorithm: index < palette.length" unless index < palette.length
+      common_colors = []
+      r1 = color1.red
+      b1 = color1.blue
+      g1 = color1.green
+      r1 /= 257 if r1 / 255 > 0
+      b1 /= 257 if b1 / 255 > 0
+      g1 /= 257 if g1 / 255 > 0
+      lab = ColorUtil.rgb_to_lab([r1, b1, g1])
+      palette.each do |color2, n2|
+        r2 = color2.red
+        b2 = color2.blue
+        g2 = color2.green
+        r2 /= 257 if r2 / 255 > 0
+        b2 /= 257 if b2 / 255 > 0
+        g2 /= 257 if g2 / 255 > 0
+        next unless @delta > ColorUtil.delta_e(lab, ColorUtil.rgb_to_lab([r2, b2, g2]))
+        common_colors << [color2, n2]
+        common_colors << [color1, n1]
+        common_colors.uniq!
+        if common_colors.first[1][1] && common_colors.first[1][1] != n2[1]
+          common_colors.first[1][1] += n2[1]
+        end
+      end
+      common_colors.uniq!
+      common_colors.drop(1).each do |col|
+        palette.delete col[0]
+      end
+      common_colors.first
+    end
+  end
+
+  def self._search_color_id(color)
+    if defined? Rails
+      SearchColor.find_or_create_by(color: color).id
+    else
+      @base_colors.index color
+    end
+  end
 
   def self.closest_color_to b
     # do not remove, used in /marvin/lib/tasks/colors.rake
