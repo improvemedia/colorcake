@@ -224,11 +224,7 @@ module Colorcake
   end
 
   def self._search_color_id(color)
-    if defined? Rails
-      SearchColor.find_or_create_by(color: color).id
-    else
-      @base_colors.index color
-    end
+    @base_colors.index color
   end
 
   def self.closest_color_to b
