@@ -98,12 +98,11 @@ module Colorcake
 
       closest_color, delta = closest_color_to c
       hex_color = c.pack("C*").unpack("H*")[0] # [0,100,255].pack("C*").unpack("H*") => ["0064ff"]
-      colors_hex["#" + hex_color] = n
+      colors_hex['#'+hex_color] = n
 
-      id = _search_color_id(closest_color)
+      id = closest_color
 
       colors[id] ||= {}
-      colors[id][:search_color_id] ||= id
       colors[id][:search_factor] ||= []
       colors[id][:search_factor] << n[1]
       colors[id][:distance] ||= []
@@ -111,7 +110,6 @@ module Colorcake
       colors[id][:hex] ||= hex_color
       colors[id][:original_color] ||= []
       colors[id][:original_color] << {"#" + hex_color => n}
-      colors[id][:hex_of_base] ||= @base_colors[id] if id
       colors[id][:distance] = delta if colors[id][:distance] == []
     end
 
@@ -124,7 +122,7 @@ module Colorcake
     # Disable when not working with DB
     # [colors, colors_hex]
     colors.delete_if{ |k,| colors[k][:search_factor] < 1 }
-    [colors, colors_hex]
+    [colors.keys, Colorcake.create_palette(colors_hex).keys]
   end
 
   def self.create_palette colors
