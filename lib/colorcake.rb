@@ -81,7 +81,7 @@ module Colorcake
     end
   end
 
-  def self.extract_colors src
+  def self.extract_colors src, search_factor: 2
     colors = {}
     colors_hex = {}
 
@@ -121,8 +121,11 @@ module Colorcake
 
     # Disable when not working with DB
     # [colors, colors_hex]
-    colors.delete_if{ |k,| colors[k][:search_factor] < 1 }
-    [colors.keys, Colorcake.create_palette(colors_hex).keys]
+    colors.delete_if{ |k,| colors[k][:search_factor] < search_factor }
+    {
+      recommended_colors: colors.keys,
+      palette: Colorcake.create_palette(colors_hex).keys
+    }
   end
 
   def self.create_palette colors
