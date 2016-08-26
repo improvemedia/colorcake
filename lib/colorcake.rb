@@ -5,8 +5,6 @@ require_relative 'colorcake/merge_colors_methods'
 require 'rmagick'
 
 module Colorcake
-  require 'colorcake/engine' if defined? Rails
-
   class << self
     attr_accessor :base_colors, :colors_count,
       :max_numbers_of_color_in_palette,
@@ -122,9 +120,15 @@ module Colorcake
     # Disable when not working with DB
     # [colors, colors_hex]
     colors.delete_if{ |k,| colors[k][:search_factor] < search_factor }
+
+    #sort by appearing in the picture
+    palette  = Colorcake.create_palette(colors_hex)
+    bg_color = palette.sort_by { |r| r.last.last }.last.first
+
     {
       recommended_colors: colors.keys,
-      palette: Colorcake.create_palette(colors_hex).keys
+      palette: palette.keys,
+      bg_color: bg_color
     }
   end
 
