@@ -133,7 +133,7 @@ module Colorcake
     }
   end
 
-  def self.create_palette coloqrs
+  def self.create_palette colors
     # raise "gonna crash with 'too deep stack level'" if caller.size > 5000 if ((Time.now.to_f.round(3)*1000) % 10) == 0
     d = @max_numbers_of_color_in_palette - colors.length
 
