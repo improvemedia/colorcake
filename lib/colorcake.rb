@@ -96,7 +96,7 @@ module Colorcake
 
       closest_color, delta = closest_color_to c
       hex_color = c.pack("C*").unpack("H*")[0] # [0,100,255].pack("C*").unpack("H*") => ["0064ff"]
-      colors_hex['#'+hex_color] = n
+      colors_hex[hex_color] = n
 
       id = closest_color
 
