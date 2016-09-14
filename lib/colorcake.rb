@@ -85,7 +85,7 @@ module Colorcake
 
     image = ::Magick::ImageList.new(src)
     image_colors = _generate_palette(image)
-    average_color = _extract_average_color(image)
+    average_color = _generate_average_color(image)
     image.destroy!
 
     common_colors = _generate_common_colors_from_palette(image_colors)
@@ -99,7 +99,7 @@ module Colorcake
 
       closest_color, delta = closest_color_to c
       hex_color = c.pack("C*").unpack("H*")[0] # [0,100,255].pack("C*").unpack("H*") => ["0064ff"]
-      colors_hex['#'+hex_color] = n
+      colors_hex[hex_color] = n
 
       id = closest_color
 
@@ -126,7 +126,7 @@ module Colorcake
 
     #sort by appearing in the picture
     palette  = Colorcake.create_palette(colors_hex)
-    bg_color = palette.sort_by { |r| r.last.last }.last.first
+    bg_color = _format_hex(palette.sort_by { |r| r.last.last }.last.first)
 
     {
       recommended_colors: colors.keys,
@@ -175,7 +175,7 @@ module Colorcake
       ] }
       preferable_shifts.take(d).each do |shift|
         imaginable_color = rgb.map{ |channel| channel + shift }
-        colors.merge! ("#" + imaginable_color.pack("C*").unpack("H*")[0]) => [1, 2]
+        colors.merge! (imaginable_color.pack("C*").unpack("H*")[0]) => [1, 2]
       end
 
     end
@@ -183,10 +183,17 @@ module Colorcake
     create_palette colors
   end
 
+  def self.average_color(src)
+    image = ::Magick::ImageList.new(src).scale!(1, 1)
+    average_color = image.to_color(image.pixel_color(0,0))
+    image.destroy!
+    _format_hex(average_color)
+  end
+
   private
 
   def self._generate_palette(image)
-        image_quantized = image.quantize(@colors_count, Magick::YIQColorspace)
+    image_quantized = image.quantize(@colors_count, Magick::YIQColorspace)
     palette = image_quantized.color_histogram # {#<Magick::Pixel:0x007fc19a08fd00>=>61660, ...}
     image_quantized.destroy!
     sum_of_pixels = palette.values.inject(:+)
@@ -194,13 +201,6 @@ module Colorcake
     palette_pixels = palette.each do |k, v|
       palette[k] = [v, v / (sum_of_pixels / 100.0)]
     end
-  end
-
-  def self._extract_average_color(image)
-    pixel_image = image.scale(1, 1)
-    average_color = pixel_image.to_color(pixel_image.pixel_color(0,0))
-    pixel_image.destroy!
-    average_color
   end
 
   def self._generate_common_colors_from_palette(palette)
@@ -241,6 +241,13 @@ module Colorcake
     @base_colors.index color
   end
 
+  def self._generate_average_color(image)
+    pixel_image = image.scale(1, 1)
+    average_color = pixel_image.to_color(pixel_image.pixel_color(0,0))
+    pixel_image.destroy!
+    _format_hex(average_color)
+  end
+
   def self.closest_color_to b
     # do not remove, used in /marvin/lib/tasks/colors.rake
     lab = ColorUtil.rgb_to_lab(b)
@@ -264,6 +271,12 @@ module Colorcake
     flattened = matrix.flatten
     i = flattened.index flattened.compact.min
     [i / matrix.size, i % matrix.size]
+  end
+
+  def self._format_hex(hex)
+    clean_hex = hex.gsub('#', '')
+    clean_hex = 'ffffff' if !(/[0-9A-F]{6}/i =~ clean_hex)
+    clean_hex
   end
 
 end
