@@ -83,9 +83,12 @@ module Colorcake
     colors = {}
     colors_hex = {}
 
-    image_colors = _generate_colors_from_image(src)
+    image = ::Magick::ImageList.new(src)
+    image_colors = _generate_palette(image)
+    average_color = _extract_average_color(image)
+    image.destroy!
 
-    common_colors = _generate_common_colors_from_palette(image_colors[:palette_pixels])
+    common_colors = _generate_common_colors_from_palette(image_colors)
 
     common_colors.each do |color, n|
       c = color.to_s.split(",").take(3).map do |s|
@@ -129,7 +132,7 @@ module Colorcake
       recommended_colors: colors.keys,
       palette: palette.keys,
       bg_color: bg_color,
-      average_bg_color: image_colors[:avg_color]
+      average_bg_color: average_color
     }
   end
 
@@ -182,25 +185,22 @@ module Colorcake
 
   private
 
-  def self._generate_colors_from_image(image_url)
-    image = ::Magick::ImageList.new(image_url)
-    # image = ::MiniMagick::Image.open(image_url)
-    # image.resize('1x1')
-    # image.quantize('YIQ')
-    # colors = `convert #{image.path} -format %c -colors 60 histogram:info:`.split("\n")
-    pixel_image = image.scale(1, 1)
-    average_color = pixel_image.to_color(pixel_image.pixel_color(0,0))
-    image_quantized = image.quantize(@colors_count, Magick::YIQColorspace)
+  def self._generate_palette(image)
+        image_quantized = image.quantize(@colors_count, Magick::YIQColorspace)
     palette = image_quantized.color_histogram # {#<Magick::Pixel:0x007fc19a08fd00>=>61660, ...}
     image_quantized.destroy!
-    pixel_image.destroy!
-    image.destroy!
     sum_of_pixels = palette.values.inject(:+)
 
     palette_pixels = palette.each do |k, v|
       palette[k] = [v, v / (sum_of_pixels / 100.0)]
     end
-    {palette_pixels: palette_pixels, avg_color: average_color}
+  end
+
+  def self._extract_average_color(image)
+    pixel_image = image.scale(1, 1)
+    average_color = pixel_image.to_color(pixel_image.pixel_color(0,0))
+    pixel_image.destroy!
+    average_color
   end
 
   def self._generate_common_colors_from_palette(palette)
