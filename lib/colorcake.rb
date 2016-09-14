@@ -85,7 +85,7 @@ module Colorcake
 
     image = ::Magick::ImageList.new(src)
     image_colors = _generate_palette(image)
-    average_color = _generate_average_color(image)
+    average_color = _extract_average_color(image)
     image.destroy!
 
     common_colors = _generate_common_colors_from_palette(image_colors)
@@ -184,10 +184,10 @@ module Colorcake
   end
 
   def self.average_color(src)
-    image = ::Magick::ImageList.new(src).scale!(1, 1)
-    average_color = image.to_color(image.pixel_color(0,0))
+    image = ::Magick::ImageList.new(src)
+    color = _extract_average_color(image)
     image.destroy!
-    _format_hex(average_color)
+    color
   end
 
   private
@@ -241,7 +241,7 @@ module Colorcake
     @base_colors.index color
   end
 
-  def self._generate_average_color(image)
+  def self._extract_average_color(image)
     pixel_image = image.scale(1, 1)
     average_color = pixel_image.to_color(pixel_image.pixel_color(0,0))
     pixel_image.destroy!
