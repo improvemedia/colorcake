@@ -126,7 +126,7 @@ module Colorcake
 
     #sort by appearing in the picture
     palette  = Colorcake.create_palette(colors_hex)
-    bg_color = _format_hex(palette.sort_by { |r| r.last.last }.last.first)
+    bg_color = palette.sort_by { |r| r.last.last }.last.first
 
     {
       recommended_colors: colors.keys,
