@@ -275,7 +275,7 @@ module Colorcake
 
   def self._format_hex(hex)
     clean_hex = hex.gsub('#', '')
-    clean_hex = 'ffffff' if !(/[0-9A-F]{6}/i =~ clean_hex)
+    clean_hex = 'ffffff' if !(/^[0-9A-F]{6}$/i =~ clean_hex)
     clean_hex[0..5]
   end
 
