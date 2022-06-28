@@ -3,6 +3,7 @@ require_relative 'colorcake/color_util'
 require_relative 'colorcake/merge_colors_methods'
 
 require 'rmagick'
+require 'uri'
 
 module Colorcake
   class << self
@@ -79,11 +80,15 @@ module Colorcake
     end
   end
 
+  def self.open_image(src)
+    ::Magick::ImageList.new.tap { |image| image.from_blob(URI.open(src).read) }
+  end
+
   def self.extract_colors src, search_factor: 2
     colors = {}
     colors_hex = {}
 
-    image = ::Magick::ImageList.new(src)
+    image = open_image(src)
     image_colors = _generate_palette(image)
     average_color = _extract_average_color(image)
     image.destroy!
@@ -184,7 +189,7 @@ module Colorcake
   end
 
   def self.average_color(src)
-    image = ::Magick::ImageList.new(src)
+    image = open_image(src)
     color = _extract_average_color(image)
     image.destroy!
     color
